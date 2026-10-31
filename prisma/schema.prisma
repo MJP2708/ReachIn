@@ -1,0 +1,315 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../lib/generated/prisma"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Sex {
+  FEMALE
+  MALE
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+}
+
+enum CircleRole {
+  FAMILY
+  INNER
+  BACKUP
+}
+
+enum IncidentType {
+  FALL
+  LONG_STAY
+  VOICE_HELP
+}
+
+enum IncidentStatus {
+  DETECTED
+  ALERTING
+  ACCEPTED
+  ARRIVED
+  RESOLVED
+  CANCELLED_SELF
+  CLOSED_BY_FAMILY
+}
+
+enum SummaryResult {
+  OK
+  MINOR_INJURY
+  EMS_CALLED
+}
+
+enum OutboundStatus {
+  PENDING
+  SENT
+  SIMULATED
+  FAILED
+}
+
+model User {
+  id                String    @id @default(cuid())
+  lineUserId        String    @unique
+  displayName       String
+  pictureUrl        String?
+  phone             String?
+  availability      Boolean   @default(true)
+  availabilityUntil DateTime?
+  /// Seeded person with a fake LINE id. Never sent to LINE: one invalid id
+  /// makes LINE reject a whole multicast, so a real alert would reach nobody.
+  isDemo            Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  sessions  Session[]
+  circles   CircleMember[]
+  accepted  Incident[]     @relation("AcceptedBy")
+  events    IncidentEvent[]
+  invites   Invite[]       @relation("InviteCreatedBy")
+}
+
+/// Stored as a hash of the cookie value, so a database read cannot hijack one.
+model Session {
+  id        String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Elder {
+  id            String    @id @default(cuid())
+  name          String
+  nickname      String
+  /// How helpers address this person, e.g. คุณยาย or คุณตา.
+  title         String    @default("คุณยาย")
+  /// How family messages refer to this person, e.g. แม่ or พ่อ.
+  familyTerm    String    @default("แม่")
+  age           Int
+  sex           Sex
+  address       String
+  lat           Float
+  lng           Float
+  phone         String?
+  notes         String?
+  allergies     String?
+  /// Family may switch the BACKUP circle off. On by default.
+  backupEnabled Boolean   @default(true)
+  consentAt     DateTime?
+  isDemo        Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  devices     Device[]
+  circle      CircleMember[]
+  invites     Invite[]
+  conditions  Condition[]
+  medications Medication[]
+  incidents   Incident[]
+}
+
+model Device {
+  id              String       @id @default(cuid())
+  elderId         String?
+  serial          String       @unique
+  /// AES-256-GCM ciphertext. HMAC verification needs the raw key, so a hash
+  /// cannot work here; see lib/device/secret.ts.
+  secretEnc       String
+  /// Printed on the QR code; lets the family link the box during registration.
+  claimToken      String?      @unique
+  room            String       @default("ห้องน้ำ")
+  lastHeartbeatAt DateTime?
+  status          DeviceStatus @default(ONLINE)
+  createdAt       DateTime     @default(now())
+
+  elder     Elder?        @relation(fields: [elderId], references: [id], onDelete: SetNull)
+  incidents Incident[]
+  events    DeviceEvent[]
+
+  @@index([elderId])
+}
+
+/// A replayed STANDING or VOICE_OK inside the 5-minute window could cancel a
+/// real incident, so each signed message is accepted once.
+model DeviceEvent {
+  id        String   @id @default(cuid())
+  deviceId  String
+  ts        Int
+  type      String
+  createdAt DateTime @default(now())
+  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, ts, type])
+}
+
+model CircleMember {
+  id        String     @id @default(cuid())
+  elderId   String
+  userId    String
+  role      CircleRole
+  hasKey    Boolean    @default(false)
+  active    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+
+  elder Elder @relation(fields: [elderId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([elderId, userId])
+  @@index([userId])
+}
+
+model Invite {
+  id          String     @id @default(cuid())
+  elderId     String
+  role        CircleRole
+  token       String     @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdById String
+  createdAt   DateTime   @default(now())
+
+  elder     Elder @relation(fields: [elderId], references: [id], onDelete: Cascade)
+  createdBy User  @relation("InviteCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([elderId])
+}
+
+model Condition {
+  id      String @id @default(cuid())
+  elderId String
+  label   String
+  elder   Elder  @relation(fields: [elderId], references: [id], onDelete: Cascade)
+
+  @@index([elderId])
+}
+
+model Medication {
+  id       String  @id @default(cuid())
+  elderId  String
+  name     String
+  schedule String
+  warning  String?
+  elder    Elder   @relation(fields: [elderId], references: [id], onDelete: Cascade)
+
+  @@index([elderId])
+}
+
+model Incident {
+  id             String         @id @default(cuid())
+  elderId        String
+  deviceId       String?
+  type           IncidentType
+  status         IncidentStatus @default(DETECTED)
+  detectedAt     DateTime       @default(now())
+  /// Latest entry into ALERTING; the no-accept timer runs from here.
+  alertingAt     DateTime?
+  acceptedById   String?
+  acceptedAt     DateTime?
+  arrivedAt      DateTime?
+  resolvedAt     DateTime?
+  outcome        SummaryResult?
+  escalated      Boolean        @default(false)
+  /// VOICE_OK and STANDING arrive in either order, so each is kept as a fact.
+  voiceOkAt      DateTime?
+  standingAt     DateTime?
+  voiceHelpAt    DateTime?
+  noResponseAt   DateTime?
+  /// Everyone alerted so far. Availability can change during an incident, and
+  /// standby messages must still reach the people who saw the first alert.
+  alertedUserIds String[]
+  declinedUserIds String[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  elder      Elder           @relation(fields: [elderId], references: [id], onDelete: Cascade)
+  device     Device?         @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  acceptedBy User?           @relation("AcceptedBy", fields: [acceptedById], references: [id], onDelete: SetNull)
+  events     IncidentEvent[]
+  guide      GuideProgress?
+  summary    Summary?
+  outbound   OutboundMessage[]
+
+  // One open incident per elder, enforced by the database.
+  @@unique([elderId], map: "incident_one_open_per_elder", where: raw("\"status\" IN ('DETECTED','ALERTING','ACCEPTED','ARRIVED')"))
+  @@index([status])
+  @@index([elderId, detectedAt])
+}
+
+/// Append-only audit log: every state change writes one row.
+model IncidentEvent {
+  id          String   @id @default(cuid())
+  incidentId  String
+  kind        String
+  actorUserId String?
+  payload     Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  actor    User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([incidentId, createdAt])
+}
+
+model GuideProgress {
+  id           String   @id @default(cuid())
+  incidentId   String   @unique
+  step         Int      @default(1)
+  safetyChecks Json     @default("[]")
+  redFlags     Json     @default("[]")
+  moves        Json     @default("[]")
+  watchChecks  Json     @default("[]")
+  emsTriggered Boolean  @default(false)
+  updatedAt    DateTime @updatedAt
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+}
+
+model Summary {
+  id         String        @id @default(cuid())
+  incidentId String        @unique
+  result     SummaryResult
+  checklist  Json          @default("[]")
+  note       String        @default("")
+  createdAt  DateTime      @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+}
+
+model ProcessedWebhookEvent {
+  webhookEventId String   @id
+  createdAt      DateTime @default(now())
+}
+
+/// Outbox and activity feed in one table. Written in the same transaction as
+/// the state change, so a crash cannot lose a fall alert, and read back by
+/// /demo because serverless console output cannot feed a page.
+model OutboundMessage {
+  id               String         @id @default(cuid())
+  incidentId       String?
+  template         String
+  audience         String
+  recipientUserIds String[]
+  messages         Json
+  /// Only set for the accepter's confirmation; a reply costs no quota.
+  replyToken       String?
+  retryKey         String         @default(uuid())
+  status           OutboundStatus @default(PENDING)
+  attempts         Int            @default(0)
+  lastError        String?
+  isDemo           Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+  sentAt           DateTime?
+
+  incident Incident? @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([incidentId])
+}

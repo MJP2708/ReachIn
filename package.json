@@ -1,0 +1,54 @@
+{
+  "name": "reachin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "typecheck": "prisma generate && tsc --noEmit",
+    "lint": "oxlint",
+    "format": "oxfmt",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "db:up": "docker compose up -d --wait",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed",
+    "device:send": "tsx scripts/device-event.ts"
+  },
+  "dependencies": {
+    "@line/bot-sdk": "11.4.0",
+    "@line/liff": "2.31.2",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "dotenv": "^17.0.0",
+    "leaflet": "1.9.4",
+    "lucide-react": "^0.550.0",
+    "next": "16.4.3",
+    "pg": "^8.16.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/leaflet": "^1.9.20",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.15.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "oxfmt": "0.75.0",
+    "oxlint": "1.90.0",
+    "prisma": "7.10.1",
+    "tailwindcss": "4.3.3",
+    "tsx": "^4.20.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}

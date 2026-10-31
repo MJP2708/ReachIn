@@ -1,0 +1,143 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-page: #f7f9fc;
+  --color-primary: #0384fc;
+  --color-primary-text: #0369ce;
+  --color-urgent: #fc5e03;
+  --color-urgent-text: #a33a00;
+  --color-ink: #101828;
+  --color-muted: #5a6472;
+  --color-primary-soft: #e6f3ff;
+  --color-urgent-soft: #fff0e6;
+  --font-sans: var(--font-noto-thai), 'Noto Sans Thai', system-ui, sans-serif;
+  --radius-card: 24px;
+  --shadow-glass: 0 8px 24px rgba(16, 24, 40, 0.06);
+  --shadow-glass-lg: 0 12px 32px rgba(16, 24, 40, 0.08);
+}
+
+html {
+  background: var(--color-page);
+  color: var(--color-ink);
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  font-family: var(--font-sans);
+  background-color: var(--color-page);
+  background-image:
+    radial-gradient(circle at 12% 8%, rgba(3, 132, 252, 0.07), transparent 42%),
+    radial-gradient(circle at 92% 88%, rgba(252, 94, 3, 0.05), transparent 42%),
+    radial-gradient(rgba(16, 24, 40, 0.05) 1px, transparent 1px);
+  background-size:
+    auto,
+    auto,
+    20px 20px;
+  background-attachment: fixed;
+}
+
+@layer components {
+  .glass {
+    border-radius: var(--radius-card);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.72);
+    box-shadow: var(--shadow-glass);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+  }
+
+  .btn {
+    display: flex;
+    min-height: 44px;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 20px;
+    padding: 10px 18px;
+    text-align: center;
+    font-weight: 700;
+    transition:
+      transform 120ms,
+      opacity 120ms;
+  }
+
+  .btn:active {
+    transform: scale(0.98);
+  }
+
+  .btn:disabled {
+    opacity: 0.55;
+  }
+
+  .btn-lg {
+    min-height: 64px;
+    font-size: 19px;
+  }
+
+  /* White on the brand colours only reaches AA as large text, so normal-size
+     buttons use the darker shades. */
+  .btn-primary {
+    background: var(--color-primary-text);
+    color: #fff;
+  }
+
+  .btn-primary.btn-lg {
+    background: var(--color-primary);
+  }
+
+  .btn-urgent {
+    background: var(--color-urgent-text);
+    color: #fff;
+  }
+
+  .btn-urgent.btn-lg {
+    background: var(--color-urgent);
+  }
+
+  .btn-soft {
+    background: var(--color-primary-soft);
+    color: var(--color-primary-text);
+  }
+
+  .btn-quiet {
+    color: var(--color-muted);
+  }
+
+  .chip {
+    display: inline-flex;
+    min-height: 32px;
+    align-items: center;
+    border-radius: 999px;
+    padding: 2px 12px;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .field {
+    display: block;
+    min-height: 48px;
+    width: 100%;
+    border-radius: 16px;
+    border: 1px solid rgba(16, 24, 40, 0.12);
+    background: rgba(255, 255, 255, 0.85);
+    padding: 10px 14px;
+    font-size: 16px;
+  }
+
+  .field:focus-visible,
+  .btn:focus-visible,
+  a:focus-visible,
+  button:focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+.leaflet-container {
+  font-family: var(--font-sans);
+  background: #eef1f5;
+}
