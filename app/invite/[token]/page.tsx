@@ -4,6 +4,10 @@ import { db } from '@/lib/db';
 import { pageUser } from '@/lib/page-auth';
 import { ROLE_LABEL } from '@/lib/views';
 
+function isUsable(invite: { usedAt: Date | null; expiresAt: Date }) {
+  return !invite.usedAt && invite.expiresAt.getTime() > Date.now();
+}
+
 export default async function InvitePage({
   params,
 }: {
@@ -20,16 +24,13 @@ export default async function InvitePage({
       elder: { select: { name: true } },
     },
   });
-  const valid =
-    invite && !invite.usedAt && invite.expiresAt.getTime() > Date.now();
-
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 p-4">
       <div className="flex justify-center">
         <Logo />
       </div>
       <section className="glass p-6 text-center">
-        {valid ? (
+        {invite && isUsable(invite) ? (
           <>
             <h1 className="text-xl font-bold">
               ลูกหลานชวนคุณเข้าวงคนช่วยของ{invite.elder.name}

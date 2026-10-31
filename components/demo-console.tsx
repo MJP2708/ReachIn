@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { postJson } from '@/lib/client-api';
 import type { FeedItem } from '@/lib/demo/feed';
@@ -54,9 +55,12 @@ export function DemoConsole({
   }, []);
 
   useEffect(() => {
-    void refresh();
+    const first = setTimeout(refresh, 0);
     const timer = setInterval(refresh, 1500);
-    return () => clearInterval(timer);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
   }, [refresh]);
 
   async function call(url: string, body: unknown, done?: string) {
@@ -167,22 +171,26 @@ export function DemoConsole({
             เล่นเป็นคนนี้
           </button>
           {actingAs && (
-            <p role="status" className="text-sm text-muted">
+            <output className="block text-sm text-muted">
               ตอนนี้เล่นเป็น {actingAs}
-            </p>
+            </output>
           )}
           <div className="grid grid-cols-2 gap-2">
-            <a href="/liff/home" className="btn btn-soft">
+            <Link href="/liff/line" prefetch={false} className="btn btn-soft">
+              แชต LINE จำลอง
+            </Link>
+            <Link href="/liff/home" prefetch={false} className="btn btn-soft">
               หน้าแรก
-            </a>
+            </Link>
             {incident && (
-              <a
+              <Link
                 href={`/liff/incident/${incident.id}/alert`}
+                prefetch={false}
                 data-testid="open-incident"
                 className="btn btn-soft"
               >
                 เปิดเหตุล่าสุด
-              </a>
+              </Link>
             )}
           </div>
         </section>
@@ -227,9 +235,9 @@ export function DemoConsole({
           รีเซ็ตข้อมูลสาธิต
         </button>
         {notice && (
-          <p role="status" data-testid="notice" className="text-center font-semibold text-primary-text">
+          <output data-testid="notice" className="block text-center font-semibold text-primary-text">
             {notice}
-          </p>
+          </output>
         )}
       </div>
 

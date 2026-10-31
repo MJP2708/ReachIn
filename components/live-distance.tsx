@@ -59,9 +59,14 @@ export function DistanceLabel({
   return metres === null ? null : <>ห่าง {formatDistance(metres)}{suffix}</>;
 }
 
-export function DistanceStat({ lat, lng }: LatLng) {
+export function DistanceStat({
+  lat,
+  lng,
+  fixedMetres,
+}: LatLng & { fixedMetres?: number }) {
   const [target] = useState({ lat, lng });
-  const metres = useDistance(target, true);
+  const measured = useDistance(target, fixedMetres === undefined);
+  const metres = fixedMetres ?? measured;
   return (
     <div className="rounded-[20px] bg-white/85 p-3.5">
       <p className="text-sm text-muted">ห่างจากคุณ</p>

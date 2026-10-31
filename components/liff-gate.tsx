@@ -69,9 +69,9 @@ export function LiffGate({ then }: { then?: string }) {
         {gate.state === 'working' && (
           <>
             <span className="mx-auto mb-3 block size-10 animate-spin rounded-full border-4 border-primary-soft border-t-primary" />
-            <p role="status" className="text-muted">
+            <output className="block text-muted">
               กำลังเข้าสู่ระบบผ่าน LINE…
-            </p>
+            </output>
           </>
         )}
         {gate.state === 'outside' && (

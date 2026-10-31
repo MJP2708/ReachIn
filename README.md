@@ -13,9 +13,9 @@ You need Node 24+, pnpm and Docker. LINE is not required.
 ```bash
 pnpm install
 cp .env.example .env
-# Fill in three values:
-#   CRON_SECRET and DEMO_SECRET:  openssl rand -hex 32
-#   DEVICE_SECRET_KEY:            openssl rand -base64 32
+# Fill in two values:
+#   CRON_SECRET:        openssl rand -hex 32
+#   DEVICE_SECRET_KEY:  openssl rand -base64 32
 
 pnpm db:up
 pnpm exec prisma migrate deploy
@@ -23,14 +23,20 @@ pnpm db:seed
 pnpm dev
 ```
 
-Open <http://localhost:3000/demo> and enter your `DEMO_SECRET`. Then:
+With `LINE_ENABLED=false` the whole site is an open demo: no password and no LINE account. Nobody can sign in as themselves in this mode, so everything on the site is fictional.
 
-1. Under **เล่นเป็น**, choose **คุณสมชาย** and press **เล่นเป็นคนนี้**.
-2. Press **ล้ม (FALL)**. The alerts appear in the activity feed on the right.
-3. Press **เปิดเหตุล่าสุด**, then **รับงาน ไปช่วยเลย**.
-4. On the route screen, press **ฉันถึงบ้านคุณยายแล้ว**. Your browser's real location is checked against the house, so first go back to `/demo` and press **ย้ายบ้านมาไว้ที่ตำแหน่งนี้**, or use **ถึงที่ระยะ 50 ม.**
-5. Work through the guide and send the summary.
-6. Return to `/demo` to see every message that went out.
+Open <http://localhost:3000>. Then:
+
+1. Press **เริ่มสาธิต: คุณยายล้ม**. You become คุณสมชาย, and the alert arrives in a simulated LINE chat.
+2. Press **รับงาน ไปช่วยเลย** in the chat, then **เปิดคู่มือช่วยเหลือ**.
+3. On the route screen, press **ฉันถึงบ้านคุณยายแล้ว**. GPS is simulated at 50 m. **ลองกดจากที่ไกล 500 ม.** shows the rejection.
+4. Work through the guide and send the summary.
+5. Press **แชต LINE** in the top bar and switch people to see what each one received. ลูกสาว shows the family's side.
+6. Press **แผงควบคุม** for the full activity feed.
+
+The chat shows the same Flex cards the real system would send, and its buttons run the same code as a real LINE tap. It is a simulation, and is labelled as one. Phone buttons show a notice instead of dialling, so nobody calls 1669 by accident.
+
+The site is shared: everyone uses the same data, and pressing the start button resets it for all visitors.
 
 Other things to show from `/demo`:
 
@@ -40,7 +46,7 @@ Other things to show from `/demo`:
 - **GPS rejection:** **ลองที่ระยะ 500 ม.** shows the Thai error.
 - **Privacy:** act as อสม.นิด and open คุณยายสมศรี. No medications appear until they accept.
 
-**รีเซ็ตข้อมูลสาธิต** restores the seed data, which also signs you out of the acted-as person. Choose them again afterwards.
+**รีเซ็ตข้อมูลสาธิต** restores the seed data at any time. It leaves real people who joined through an invite in their circles.
 
 ## Commands
 
@@ -49,10 +55,10 @@ Other things to show from `/demo`:
 | `pnpm dev` | Dev server on port 3000 |
 | `pnpm build` | Production build |
 | `pnpm typecheck && pnpm lint && pnpm test` | All checks. Needs `pnpm db:up` |
-| `pnpm test:e2e` | Playwright smoke test. Needs `pnpm build` first, and `pnpm exec playwright install chromium` once |
+| `pnpm test:e2e` | Playwright smoke test. Needs `pnpm build` first, and `pnpm exec playwright install chromium` once. On a slow connection, point `PW_CHROMIUM_PATH` at a Chromium you already have |
 | `pnpm device:send RI-DEMO-0001 FALL` | Send a signed event, as the box would |
 
-The local database lives in memory: stopping the container erases it.
+The local database lives in memory: stopping the container erases it. To get it back, run `pnpm db:up`, `pnpm exec prisma migrate deploy` and `pnpm db:seed`.
 
 ## Deploy
 
@@ -111,9 +117,31 @@ Everything lives under one **provider**. This matters: LINE issues a different u
 
 Set `LINE_ENABLED=true`, redeploy, and add the Official Account as a friend on each test phone.
 
+This also closes the open demo: `/demo` then needs `DEMO_SECRET`, and an empty `DEMO_SECRET` turns it off.
+
 Seeded people have fake LINE IDs, so nothing is sent to them; those messages show as **จำลอง** in the feed. To receive real messages, join through an invite: act as ลูกสาว in `/demo`, open the elder's **วงคนช่วย** tab, create a link, and open it on your phone in LINE.
 
 **Rich menu (optional):** point a button at `https://liff.line.me/<LIFF_ID>/liff/home`.
+
+### Real use with no box
+
+Without the box, a person starts every incident: anyone in the circle opens the elder's page and presses **แจ้งเหตุ**. Family registers a real elder at `/liff/register`, and helpers join through invite links. Real accounts get real GPS checks and working call buttons; the simulation only applies to the fictional elders.
+
+Nothing detects a fall by itself in this mode, so it only helps when someone already knows. An elder alone on the floor still depends on the box.
+
+### Real LINE without an Official Account
+
+You only need a LINE Login channel and a LIFF app. Keep `LINE_ENABLED=false`.
+
+1. In the LIFF app, set the Endpoint URL to your bare domain and the scopes to **openid** and **profile**.
+2. On the **LIFF** tab, click **shareTargetPicker**, accept the agreement and click **Enable**. This is once per channel.
+3. Publish the Login channel, or add your testers. An unpublished channel only works for its developers.
+4. Set `NEXT_PUBLIC_LIFF_ID` and `LINE_LOGIN_CHANNEL_ID` in Vercel and deploy. The LIFF ID is built into the page, so it needs a new deployment.
+5. Open `https://liff.line.me/<LIFF_ID>` in LINE, press start, then press **ส่งแจ้งเตือนเข้า LINE จริง** and pick friends or a group.
+
+Each person who opens the card signs in with their real LINE account, joins คุณยายสมศรี's demo circle, and can race for the job.
+
+What this cannot do: **the server cannot message anyone.** A person must press the button, so nothing arrives by itself, and standby, family and summary updates stay inside the app. Automatic alerts need the Messaging API. Cards are sent from the presser's own account and say they are a demo.
 
 ### Message quota
 

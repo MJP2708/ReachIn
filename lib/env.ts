@@ -49,6 +49,11 @@ export type Env = z.infer<typeof schema>;
 
 let cached: Env | undefined;
 
+/** Tests change process.env and need it read again. */
+export function resetEnvForTests() {
+  cached = undefined;
+}
+
 /**
  * Validated environment.
  *

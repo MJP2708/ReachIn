@@ -5,12 +5,9 @@ import Link from 'next/link';
 
 export function Loading() {
   return (
-    <main
-      role="status"
-      className="flex min-h-dvh flex-col items-center justify-center gap-3 p-6"
-    >
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-3 p-6">
       <span className="size-10 animate-spin rounded-full border-4 border-primary-soft border-t-primary" />
-      <p className="text-muted">กำลังโหลด…</p>
+      <output className="text-muted">กำลังโหลด…</output>
     </main>
   );
 }

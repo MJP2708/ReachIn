@@ -19,6 +19,16 @@ export function shortDate(date: Date): string {
   }).format(date);
 }
 
+/** Today in Thai, as "ส. 31 ต.ค.". */
+export function todayLabel(): string {
+  return new Intl.DateTimeFormat('th-TH', {
+    timeZone: TIME_ZONE,
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  }).format(new Date());
+}
+
 export function monthKey(date: Date): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: TIME_ZONE,
@@ -30,4 +40,8 @@ export function monthKey(date: Date): string {
 
 export function minutesBetween(from: Date, to: Date): number {
   return Math.max(0, Math.round((to.getTime() - from.getTime()) / 60_000));
+}
+
+export function minutesSince(from: Date): number {
+  return minutesBetween(from, new Date());
 }

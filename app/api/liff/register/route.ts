@@ -45,6 +45,7 @@ export const POST = route(async (req) => {
     const created = await tx.elder.create({
       data: {
         ...elder,
+        isDemo: user.isDemo,
         consentAt: consent ? new Date() : null,
         conditions: { create: conditions.map((label) => ({ label })) },
         medications: { create: medications },

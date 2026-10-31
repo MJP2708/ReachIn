@@ -6,9 +6,16 @@ import { AutoRefresh } from '@/components/auto-refresh';
 import { EmergencyHeader } from '@/components/emergency-header';
 import { FamilyClose } from '@/components/family-close';
 import { DistanceStat } from '@/components/live-distance';
+import { JoinDemo } from '@/components/join-demo';
+import { ShareToLine } from '@/components/share-to-line';
+import { demoOpen } from '@/lib/demo/guard';
+import { demoElderToJoin } from '@/lib/demo/join';
 import { orNotFound, pageUser } from '@/lib/page-auth';
-import { clock, minutesBetween } from '@/lib/time';
+import { clock, minutesSince } from '@/lib/time';
 import { getIncidentView, type IncidentView } from '@/lib/views';
+
+/** A visitor's real distance from a fictional house means nothing. */
+const DEMO_DISTANCE_M = 200;
 
 function headline(view: IncidentView) {
   if (view.type === 'LONG_STAY') return `อยู่ใน${view.room}นานผิดปกติ`;
@@ -65,6 +72,13 @@ function StatusView({ view }: { view: IncidentView }) {
         )}
       </section>
       {view.open && view.escalated && <EmsLink />}
+      {view.open && demoOpen() && (
+        <ShareToLine
+          incidentId={view.id}
+          elderName={view.elder.name}
+          demo={view.isDemoElder}
+        />
+      )}
       {family && view.open && <FamilyClose incidentId={view.id} />}
       <Link href="/liff/home" className="btn btn-soft">
         กลับหน้าแรก
@@ -80,6 +94,8 @@ export default async function AlertPage({
 }) {
   const { id } = await params;
   const user = await pageUser();
+  const joining = await demoElderToJoin(user.id, id);
+  if (joining) return <JoinDemo incidentId={id} elderName={joining} />;
   const view = await orNotFound(getIncidentView(user.id, id));
 
   if (view.isAccepter && view.status === 'ACCEPTED') {
@@ -92,11 +108,12 @@ export default async function AlertPage({
     return <StatusView view={view} />;
   }
 
-  const minutesAgo = minutesBetween(view.detectedAt, new Date());
-  const initial = (name: string) => name.replace(/^(คุณ|ป้า|ลุง|อสม\.)/, '')[0];
+  const minutesAgo = minutesSince(view.detectedAt);
+  const initial = (name: string) =>
+    name.replace(/^(คุณ|ป้า|ลุง|อสม\.)/, '').replace(/^[เแโใไ]/, '')[0];
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-3 p-4">
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-3 p-4 pb-0">
       <AutoRefresh />
       <EmergencyHeader
         right={
@@ -122,7 +139,11 @@ export default async function AlertPage({
               {minutesAgo === 0 ? 'เมื่อสักครู่' : `${minutesAgo} นาทีที่แล้ว`}
             </p>
           </div>
-          <DistanceStat lat={view.elder.lat} lng={view.elder.lng} />
+          <DistanceStat
+            lat={view.elder.lat}
+            lng={view.elder.lng}
+            fixedMetres={view.isDemoElder ? DEMO_DISTANCE_M : undefined}
+          />
         </div>
         {view.noVoiceAnswer && (
           <p className="mt-2.5 flex items-center gap-2 rounded-[20px] bg-white/85 p-3.5 font-semibold">
@@ -171,14 +192,25 @@ export default async function AlertPage({
         </p>
       </div>
 
-      {view.escalated && <EmsLink />}
-      <AlertActions incidentId={id} />
+      {demoOpen() && (
+        <ShareToLine
+          incidentId={id}
+          elderName={view.elder.name}
+          demo={view.isDemoElder}
+        />
+      )}
 
       {!view.private && (
-        <p className="pb-2 text-center text-sm text-muted">
+        <p className="text-center text-sm text-muted">
           ข้อมูลสุขภาพของ{view.elder.title}จะแสดงหลังกดรับงาน
         </p>
       )}
+
+      {/* The main action stays on screen however long the card above runs. */}
+      <div className="sticky bottom-0 -mx-4 mt-auto flex flex-col gap-2 bg-gradient-to-t from-page via-page to-transparent px-4 pt-6 pb-3">
+        {view.escalated && <EmsLink />}
+        <AlertActions incidentId={id} />
+      </div>
     </main>
   );
 }

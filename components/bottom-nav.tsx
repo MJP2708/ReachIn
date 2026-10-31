@@ -19,7 +19,7 @@ export function BottomNav() {
       aria-label="เมนูหลัก"
       className="fixed inset-x-0 bottom-3 z-40 mx-auto w-[calc(100%-24px)] max-w-md"
     >
-      <ul className="glass flex rounded-[28px] bg-white/85 p-1.5">
+      <ul className="glass flex rounded-[28px] bg-white/95 p-1.5">
         {ITEMS.map(({ href, label, icon: Icon, match }) => {
           const active = match.some((prefix) => pathname.startsWith(prefix));
           return (

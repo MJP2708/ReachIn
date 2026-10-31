@@ -62,7 +62,7 @@ async function ensureUser(lineUserId: string) {
   });
 }
 
-async function handlePostback(
+export async function handlePostback(
   lineUserId: string,
   data: string,
   replyToken: string | undefined,

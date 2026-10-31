@@ -151,6 +151,68 @@ export const keyButton = (incidentId: string): CardButton => ({
   primary: true,
 });
 
+export type ChatButton = {
+  label: string;
+  primary: boolean;
+  urgent: boolean;
+  /** Exactly one of these is set. */
+  data?: string;
+  displayText?: string;
+  uri?: string;
+};
+
+export type ChatCard = {
+  eyebrow: string;
+  eyebrowColour: string;
+  title: string;
+  lines: string[];
+  rows: Array<{ label: string; value: string }>;
+  buttons: ChatButton[];
+};
+
+const textOf = (node: messagingApi.FlexComponent | undefined) =>
+  node?.type === 'text' ? (node.text ?? '') : '';
+
+/** Read a card back from the Flex JSON, so the simulated chat shows what was queued. */
+export function parseCard(message: LineMessage): ChatCard | null {
+  if (message.type !== 'flex') return null;
+  const bubble = message.contents as messagingApi.FlexBubble;
+  const [eyebrow, title, ...rest] = bubble.body?.contents ?? [];
+  const footer = bubble.footer?.contents ?? [];
+
+  return {
+    eyebrow: textOf(eyebrow),
+    eyebrowColour:
+      (eyebrow?.type === 'text' && eyebrow.color) || COLOURS.blueText,
+    title: textOf(title),
+    lines: rest.filter((node) => node.type === 'text').map(textOf),
+    rows: rest.flatMap((node) =>
+      node.type === 'box'
+        ? [{ label: textOf(node.contents[0]), value: textOf(node.contents[1]) }]
+        : [],
+    ),
+    buttons: footer.flatMap((node) => {
+      if (node.type !== 'button') return [];
+      const action = node.action as {
+        label: string;
+        data?: string;
+        displayText?: string;
+        uri?: string;
+      };
+      return [
+        {
+          label: action.label,
+          primary: node.style === 'primary',
+          urgent: node.color === COLOURS.orange,
+          data: action.data,
+          displayText: action.displayText,
+          uri: action.uri,
+        },
+      ];
+    }),
+  };
+}
+
 /** Plain-language view of a card, for the demo feed. */
 export function describeCard(message: LineMessage): string {
   if (message.type === 'text') return message.text;
