@@ -83,25 +83,29 @@ export function SummaryForm({
             {checks.map((item) => {
               const checked = checklist.includes(item);
               return (
-                <button
+                <label
                   key={item}
-                  type="button"
-                  role="checkbox"
-                  aria-checked={checked}
-                  onClick={() =>
-                    setChecklist((list) =>
-                      checked ? list.filter((x) => x !== item) : [...list, item],
-                    )
-                  }
-                  className="flex min-h-11 items-center gap-3 rounded-2xl text-left font-medium"
+                  className="flex min-h-11 cursor-pointer items-center gap-3 rounded-2xl text-left font-medium has-focus-visible:outline-3 has-focus-visible:outline-primary"
                 >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() =>
+                      setChecklist((list) =>
+                        checked
+                          ? list.filter((x) => x !== item)
+                          : [...list, item],
+                      )
+                    }
+                    className="sr-only"
+                  />
                   <span
                     className={`flex size-6 shrink-0 items-center justify-center rounded-md border-2 ${checked ? 'border-transparent bg-primary-text text-white' : 'border-ink/25'}`}
                   >
                     {checked && <Check className="size-4" aria-hidden />}
                   </span>
                   {item}
-                </button>
+                </label>
               );
             })}
           </div>

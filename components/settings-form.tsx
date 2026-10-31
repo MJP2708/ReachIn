@@ -33,9 +33,9 @@ export function SettingsForm({ phone }: { phone: string | null }) {
         บันทึก
       </button>
       {message && (
-        <p role="status" className="mt-2 text-center text-muted">
+        <output className="block mt-2 text-center text-muted">
           {message}
-        </p>
+        </output>
       )}
     </section>
   );

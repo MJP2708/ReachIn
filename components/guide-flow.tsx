@@ -68,20 +68,22 @@ function Checks({
         const checked = selected.includes(item);
         return (
           <li key={item}>
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={checked}
-              onClick={() => onToggle(item)}
-              className={`flex min-h-14 w-full items-center gap-3 rounded-[20px] border bg-white/85 p-3.5 text-left font-semibold ${checked ? on : 'border-ink/10'}`}
+            <label
+              className={`flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-[20px] border bg-white/85 p-3.5 text-left font-semibold has-focus-visible:outline-3 has-focus-visible:outline-primary ${checked ? on : 'border-ink/10'}`}
             >
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={() => onToggle(item)}
+                className="sr-only"
+              />
               <span
                 className={`flex size-6 shrink-0 items-center justify-center rounded-full border-2 ${checked ? 'border-transparent bg-ink text-white' : 'border-ink/25'}`}
               >
                 {checked && <Check className="size-4" aria-hidden />}
               </span>
               {item}
-            </button>
+            </label>
           </li>
         );
       })}
@@ -256,9 +258,9 @@ export function GuideFlow({
               “{t(STEP_3.ask)}”
             </p>
             {notReady && (
-              <p role="status" className="mb-3 rounded-[20px] bg-urgent-soft p-4 font-semibold">
+              <output className="block mb-3 rounded-[20px] bg-urgent-soft p-4 font-semibold">
                 {STEP_3.rest}
-              </p>
+              </output>
             )}
             <div className="flex flex-col gap-2">
               <button type="button" onClick={() => goTo(4)} className="btn btn-lg btn-primary">

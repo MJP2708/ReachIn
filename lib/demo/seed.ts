@@ -102,6 +102,10 @@ export async function seedDemo(db: Db, now = new Date()) {
   const demoElderIds = ELDERS.map((elder) => elder.id);
 
   await db.incident.deleteMany({ where: { elderId: { in: demoElderIds } } });
+  // Elders registered during a demo.
+  await db.elder.deleteMany({
+    where: { isDemo: true, id: { notIn: demoElderIds } },
+  });
   await db.outboundMessage.deleteMany({ where: { isDemo: true } });
   await db.invite.deleteMany({ where: { elderId: { in: demoElderIds } } });
 
@@ -121,7 +125,12 @@ export async function seedDemo(db: Db, now = new Date()) {
   }
 
   for (const elder of ELDERS) {
-    const data = { ...elder, isDemo: true, consentAt: new Date(now.getTime() - 90 * DAY) };
+    const data = {
+      ...elder,
+      backupEnabled: true,
+      isDemo: true,
+      consentAt: new Date(now.getTime() - 90 * DAY),
+    };
     await db.elder.upsert({ where: { id: elder.id }, create: data, update: data });
   }
 

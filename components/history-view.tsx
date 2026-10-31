@@ -94,7 +94,8 @@ export function HistoryView({ items }: { items: HistoryItem[] }) {
         <Chart items={items} />
       </section>
 
-      <div role="group" aria-label="ตัวกรอง" className="my-3 flex gap-2">
+      <fieldset className="my-3 flex gap-2">
+        <legend className="sr-only">ตัวกรอง</legend>
         {FILTERS.map(({ value, label }) => (
           <button
             key={value}
@@ -106,7 +107,7 @@ export function HistoryView({ items }: { items: HistoryItem[] }) {
             {label}
           </button>
         ))}
-      </div>
+      </fieldset>
 
       <ul className="flex flex-col gap-2.5">
         {shown.length === 0 && (

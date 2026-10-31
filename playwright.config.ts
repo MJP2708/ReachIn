@@ -6,6 +6,7 @@ const PORT = 3100;
 
 export default defineConfig({
   testDir: 'tests/e2e',
+  globalSetup: './tests/e2e/global-setup.ts',
   timeout: 90_000,
   reporter: 'list',
   use: {
@@ -15,6 +16,8 @@ export default defineConfig({
     timezoneId: 'Asia/Bangkok',
     geolocation: { latitude: 13.7465, longitude: 100.4825 },
     permissions: ['geolocation'],
+    // For machines that cannot download Playwright's own browser build.
+    launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH || undefined },
   },
   webServer: {
     command: `pnpm exec next start -p ${PORT}`,

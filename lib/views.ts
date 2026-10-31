@@ -141,8 +141,12 @@ export async function getIncidentView(userId: string, incidentId: string) {
     arrivedAt: incident.arrivedAt,
     resolvedAt: incident.resolvedAt,
     outcome: incident.outcome,
-    noVoiceAnswer: incident.voiceOkAt === null && incident.voiceHelpAt === null,
-    room: incident.device?.room ?? 'ห้องน้ำ',
+    noVoiceAnswer:
+      incident.deviceId !== null &&
+      incident.voiceOkAt === null &&
+      incident.voiceHelpAt === null,
+    room: incident.device?.room ?? 'บ้าน',
+    isDemoElder: elder.isDemo,
     viewerRole: member.role,
     isAccepter,
     accepterName: incident.acceptedBy?.displayName ?? null,
@@ -291,7 +295,7 @@ export async function getHistory(userId: string) {
   return incidents.map((incident) => ({
     id: incident.id,
     elderName: incident.elder.name,
-    room: incident.device?.room ?? 'ห้องน้ำ',
+    room: incident.device?.room ?? 'บ้าน',
     detectedAt: incident.detectedAt,
     status: incident.status,
     outcome: incident.outcome,

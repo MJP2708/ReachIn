@@ -31,9 +31,9 @@ export function AlertActions({ incidentId }: { incidentId: string }) {
 
   if (declined) {
     return (
-      <p role="status" className="glass p-4 text-center text-muted">
+      <output className="block glass p-4 text-center text-muted">
         รับทราบ ขอบคุณที่แจ้ง ถ้าไปได้ภายหลังกดรับงานจากข้อความได้
-      </p>
+      </output>
     );
   }
 

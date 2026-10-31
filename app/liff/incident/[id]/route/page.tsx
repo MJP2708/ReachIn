@@ -2,6 +2,7 @@ import { ArrowLeft, Key, MapPin, Phone } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArriveButton } from '@/components/arrive-button';
+import { DemoArrive } from '@/components/demo-arrive';
 import { RouteMap } from '@/components/route-map';
 import { googleMapsUrl } from '@/lib/line/urls';
 import { orNotFound, pageUser } from '@/lib/page-auth';
@@ -24,8 +25,8 @@ export default async function RoutePage({
   const keyHolder = view.private?.keyHolder;
 
   return (
-    <main className="relative flex h-dvh flex-col">
-      <div className="absolute inset-0 bottom-[300px]">
+    <main className="relative flex h-[calc(100dvh-var(--demo-bar,0px))] flex-col">
+      <div className="absolute inset-0 bottom-[360px] isolate">
         <RouteMap target={elder} label={`บ้าน${elder.name}`} />
       </div>
 
@@ -88,9 +89,16 @@ export default async function RoutePage({
           )}
         </div>
 
-        <div className="mt-3 flex">
-          <ArriveButton incidentId={id} label={`ฉันถึงบ้าน${elder.title}แล้ว`} />
-        </div>
+        {view.isDemoElder ? (
+          <DemoArrive incidentId={id} label={`ฉันถึงบ้าน${elder.title}แล้ว`} />
+        ) : (
+          <div className="mt-3 flex">
+            <ArriveButton
+              incidentId={id}
+              label={`ฉันถึงบ้าน${elder.title}แล้ว`}
+            />
+          </div>
+        )}
         <a
           href={googleMapsUrl(elder.lat, elder.lng)}
           target="_blank"

@@ -19,6 +19,9 @@ import {
   type TransitionError,
 } from './machine';
 
+/** A report from a person doesn't say which room. */
+export const DEFAULT_ROOM = 'บ้าน';
+
 const TX_OPTIONS = { maxWait: 10_000, timeout: 15_000 };
 
 export const RESULT_LABEL: Record<SummaryResult, string> = {
@@ -229,7 +232,7 @@ async function applyInTx(
     nextState: result.nextState,
     type: incident.type,
     escalated: result.escalated,
-    room: incident.device?.room ?? 'ห้องน้ำ',
+    room: incident.device?.room ?? DEFAULT_ROOM,
     detectedAt: incident.detectedAt,
     arrivedAt: updated.arrivedAt,
     elder: {

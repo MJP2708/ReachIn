@@ -1,4 +1,5 @@
 import { ElderTabs } from '@/components/elder-tabs';
+import { ReportFall } from '@/components/report-fall';
 import { orNotFound, pageUser } from '@/lib/page-auth';
 import { getElderView } from '@/lib/views';
 
@@ -18,6 +19,7 @@ export default async function ElderPage({
         </h1>
         <p className="text-sm text-muted">{elder.address}</p>
       </header>
+      <ReportFall elderId={elder.id} elderName={elder.name} />
       <ElderTabs elder={elder} />
     </main>
   );

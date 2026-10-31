@@ -8,8 +8,10 @@ import {
   verifyDeviceSignature,
 } from '@/lib/device/secret';
 import { isFreshTimestamp } from '@/lib/device/events';
+import { cleanDatabaseUrl } from '@/lib/db';
 import { haversineMetres, pointNorthOf } from '@/lib/geo';
 import { monthBuckets } from '@/lib/history';
+import { shareAlertMessage } from '@/lib/line/share';
 import { verifyLineSignature } from '@/lib/line/verify';
 import { canSeePrivate } from '@/lib/privacy';
 import { isAvailable } from '@/lib/user';
@@ -23,6 +25,49 @@ describe('geo', () => {
     expect(haversineMetres(home, pointNorthOf(home, 500))).toBeCloseTo(500, 0);
     // One degree of latitude is about 111 km.
     expect(haversineMetres({ lat: 0, lng: 0 }, { lat: 1, lng: 0 })).toBeCloseTo(111_195, -2);
+  });
+});
+
+describe('shared LINE card', () => {
+  const message = JSON.stringify(
+    shareAlertMessage({ id: 'inc1', elderName: 'คุณยายสมศรี', demo: true }),
+  );
+
+  it('uses link buttons only, which is all LINE allows', () => {
+    expect(message).toContain('"type":"uri"');
+    expect(message).not.toContain('"type":"postback"');
+    expect(message).toContain('/liff/incident/inc1/alert');
+  });
+
+  it('says plainly that it is a demo, and names nobody in the alt text', () => {
+    expect(message).toContain('ไม่ใช่เหตุจริง');
+    const { altText } = JSON.parse(message) as { altText: string };
+    expect(altText).toContain('สาธิต');
+    expect(altText).not.toContain('สมศรี');
+  });
+});
+
+describe('shared card for a real elder', () => {
+  it('does not call a real emergency a demo', () => {
+    const message = JSON.stringify(
+      shareAlertMessage({ id: 'inc1', elderName: 'คุณยายจริง', demo: false }),
+    );
+    expect(message).not.toContain('สาธิต');
+    expect(message).toContain('ต้องการคนช่วยด่วน');
+  });
+});
+
+describe('database URL', () => {
+  const url = 'postgresql://u:p%27w@host.neon.tech/db?sslmode=require&channel_binding=require';
+
+  it.each([
+    ['clean', url],
+    ['quoted', `'${url}'`],
+    ['double quoted', `"${url}"`],
+    ['psql snippet', `psql '${url}'`],
+    ['stray characters', `'${url}'\`1`],
+  ])('%s', (_name, raw) => {
+    expect(cleanDatabaseUrl(raw)).toBe(url);
   });
 });
 

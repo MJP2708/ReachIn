@@ -13,7 +13,8 @@ export type FeedItem = {
 export async function getDemoFeed() {
   const incident = await db().incident.findFirst({
     where: { elder: { isDemo: true } },
-    orderBy: { createdAt: 'desc' },
+    // Not createdAt: a reset writes old incidents with a fresh createdAt.
+    orderBy: { detectedAt: 'desc' },
     select: {
       id: true,
       status: true,

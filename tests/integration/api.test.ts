@@ -4,6 +4,14 @@ import { POST as authLine } from '@/app/api/auth/line/route';
 import { GET as cronGet } from '@/app/api/cron/tick/route';
 import { POST as demoLogin } from '@/app/api/demo/login/route';
 import { POST as demoEvent } from '@/app/api/demo/event/route';
+import { GET as demoChat } from '@/app/api/demo/chat/route';
+import { POST as demoPostback } from '@/app/api/demo/postback/route';
+import { POST as demoStart } from '@/app/api/demo/start/route';
+import { POST as joinDemo } from '@/app/api/liff/incident/[id]/join/route';
+import { POST as reportFall } from '@/app/api/liff/elder/[id]/report/route';
+import { POST as register } from '@/app/api/liff/register/route';
+import { POST as createInviteRoute } from '@/app/api/liff/elder/[id]/invites/route';
+import { POST as summary } from '@/app/api/liff/incident/[id]/summary/route';
 import { POST as demoActAs } from '@/app/api/demo/act-as/route';
 import { POST as deviceEvents } from '@/app/api/device/events/route';
 import { GET as elderGet } from '@/app/api/liff/elder/[id]/route';
@@ -17,6 +25,7 @@ import { db } from '@/lib/db';
 import { SOMSRI } from '@/lib/demo/seed';
 import { DEMO_COOKIE, demoCookieValue } from '@/lib/demo/guard';
 import { demoDeviceSecret, signDeviceBody } from '@/lib/device/secret';
+import { resetEnvForTests } from '@/lib/env';
 import { acceptIncident, familyClose } from '@/lib/incident/service';
 import { createInvite } from '@/lib/invites';
 import { deliverOutbound, retryPendingOutbound } from '@/lib/incident/outbox';
@@ -470,12 +479,63 @@ describe('cron and demo guards', () => {
     ).toBe(200);
   });
 
-  it('demo routes are 404 without the cookie', async () => {
+  describe('with LINE on', () => {
+    const saved = { ...process.env };
+
+    beforeEach(() => {
+      process.env.LINE_ENABLED = 'true';
+      process.env.NEXT_PUBLIC_LIFF_ID = '1234567890-abcdefgh';
+      resetEnvForTests();
+    });
+
+    afterEach(() => {
+      process.env.LINE_ENABLED = saved.LINE_ENABLED;
+      process.env.NEXT_PUBLIC_LIFF_ID = saved.NEXT_PUBLIC_LIFF_ID ?? '';
+      resetEnvForTests();
+    });
+
+    it('demo routes are 404 without the cookie', async () => {
+      const res = await demoEvent(
+        jsonRequest('/api/demo/event', { body: { elderId: SOMSRI, type: 'FALL' } }),
+        params({}),
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it('demo routes work with the cookie', async () => {
+      const res = await demoEvent(
+        jsonRequest('/api/demo/event', {
+          body: { elderId: SOMSRI, type: 'HEARTBEAT' },
+          headers: { cookie: `${DEMO_COOKIE}=${demoCookieValue()}` },
+        }),
+        params({}),
+      );
+      expect(res.status).toBe(200);
+    });
+
+    it('the one-tap start is closed too', async () => {
+      expect((await demoStart(jsonRequest('/api/demo/start', { body: {} }), params({}))).status).toBe(404);
+    });
+  });
+
+  it('with LINE off the demo needs no password', async () => {
     const res = await demoEvent(
-      jsonRequest('/api/demo/event', { body: { elderId: SOMSRI, type: 'FALL' } }),
+      jsonRequest('/api/demo/event', { body: { elderId: SOMSRI, type: 'HEARTBEAT' } }),
       params({}),
     );
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+  });
+
+  it('one tap gives fresh data, a session and an open fall', async () => {
+    await fall();
+    const res = await demoStart(jsonRequest('/api/demo/start', { body: {} }), params({}));
+    expect(res.status).toBe(200);
+    await flushAfter();
+    const { incidentId } = await res.json();
+    expect(res.headers.get('set-cookie')).toContain(`${SESSION_COOKIE}=`);
+    const incident = await db().incident.findUniqueOrThrow({ where: { id: incidentId } });
+    expect(incident.status).toBe('ALERTING');
+    expect(await db().incident.count({ where: { elderId: SOMSRI, status: 'ALERTING' } })).toBe(1);
   });
 
   it('demo login rejects a wrong secret and issues a cookie for the right one', async () => {
@@ -490,9 +550,8 @@ describe('cron and demo guards', () => {
 
   it('acting as someone is limited to seeded people', async () => {
     const real = await db().user.create({ data: { lineUserId: 'U-real', displayName: 'จริง' } });
-    const cookie = `${DEMO_COOKIE}=${demoCookieValue()}`;
     const act = (userId: string) =>
-      demoActAs(jsonRequest('/api/demo/act-as', { body: { userId }, headers: { cookie } }), params({}));
+      demoActAs(jsonRequest('/api/demo/act-as', { body: { userId } }), params({}));
     expect((await act(real.id)).status).toBe(404);
     expect((await act(SOMCHAI)).status).toBe(200);
   });
@@ -570,4 +629,237 @@ describe('outbound delivery', () => {
     expect(fake.calls.some((call) => call.kind === 'reply')).toBe(true);
     expect(fake.calls.some((call) => call.kind === 'push' && call.to === lineId(SOMCHAI))).toBe(true);
   });
+});
+
+describe('simulated LINE chat', () => {
+  const cookieFor = async (userId: string) => {
+    const res = await demoActAs(
+      jsonRequest('/api/demo/act-as', { body: { userId } }),
+      params({}),
+    );
+    return (res.headers.get('set-cookie') ?? '').split(';')[0]!;
+  };
+  const chatFor = async (cookie: string) => {
+    const res = await demoChat(
+      jsonRequest('/api/demo/chat', { method: 'GET', headers: { cookie } }),
+      params({}),
+    );
+    return (await res.json()).messages as Array<{ card: { title: string; buttons: Array<{ label: string; data?: string }> } }>;
+  };
+
+  it('each person sees only their own messages, with real buttons', async () => {
+    await fall();
+    const helper = await chatFor(await cookieFor(SOMCHAI));
+    expect(helper[0]!.card.title).toBe('คุณยายสมศรีล้มในห้องน้ำ');
+    expect(helper[0]!.card.buttons[0]!.data).toMatch(/^action=accept&incident=/);
+
+    const family = await chatFor(await cookieFor(DAUGHTER));
+    expect(family).toHaveLength(1);
+    expect(family[0]!.card.title).toBe('แม่ล้มในห้องน้ำ กำลังหาคนไปช่วย');
+  });
+
+  it('tapping รับงาน runs the real accept and replies in the chat', async () => {
+    const { incidentId } = await fall();
+    const cookie = await cookieFor(SOMCHAI);
+    const res = await demoPostback(
+      jsonRequest('/api/demo/postback', {
+        body: { data: `action=accept&incident=${incidentId}` },
+        headers: { cookie },
+      }),
+      params({}),
+    );
+    expect(res.status).toBe(200);
+    const incident = await db().incident.findUniqueOrThrow({ where: { id: incidentId } });
+    expect(incident.acceptedById).toBe(SOMCHAI);
+    expect((await chatFor(cookie)).at(-1)!.card.buttons[0]!.label).toBe('เปิดคู่มือช่วยเหลือ');
+  });
+
+  it('refuses a postback that is not ours', async () => {
+    const cookie = await cookieFor(SOMCHAI);
+    const res = await demoPostback(
+      jsonRequest('/api/demo/postback', { body: { data: 'name=สมศรี' }, headers: { cookie } }),
+      params({}),
+    );
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('joining from a shared LINE card', () => {
+  const join = (id: string, sub: string) =>
+    joinDemo(
+      jsonRequest(`/api/liff/incident/${id}/join`, { body: {}, headers: bearer(sub) }),
+      params({ id }),
+    );
+  const acceptAs = (id: string, sub: string) =>
+    accept(
+      jsonRequest(`/api/liff/incident/${id}/accept`, { body: {}, headers: bearer(sub) }),
+      params({ id }),
+    );
+
+  it('needs a verified LINE identity', async () => {
+    const { incidentId } = await fall();
+    const res = await joinDemo(
+      jsonRequest(`/api/liff/incident/${incidentId}/join`, { body: {} }),
+      params({ id: incidentId }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('lets a real person into the demo circle to take the job', async () => {
+    const { incidentId } = await fall();
+    expect((await acceptAs(incidentId, 'U-real-phone')).status).toBe(404);
+
+    expect((await join(incidentId, 'U-real-phone')).status).toBe(200);
+    expect((await acceptAs(incidentId, 'U-real-phone')).status).toBe(200);
+
+    const incident = await db().incident.findUniqueOrThrow({
+      where: { id: incidentId },
+      include: { acceptedBy: true },
+    });
+    expect(incident.acceptedBy?.lineUserId).toBe('U-real-phone');
+    expect(incident.alertedUserIds).toContain(incident.acceptedById);
+  });
+
+  it('two real phones race and exactly one wins', async () => {
+    const { incidentId } = await fall();
+    await join(incidentId, 'U-phone-a');
+    await join(incidentId, 'U-phone-b');
+    const results = await Promise.all([
+      acceptAs(incidentId, 'U-phone-a'),
+      acceptAs(incidentId, 'U-phone-b'),
+    ]);
+    expect(results.map((res) => res.status).sort()).toEqual([200, 409]);
+  });
+
+  it('never opens a real elder\'s circle', async () => {
+    await db().elder.update({ where: { id: SOMSRI }, data: { isDemo: false } });
+    const { incidentId } = await fall();
+    expect((await join(incidentId, 'U-real-phone')).status).toBe(404);
+    expect(await db().circleMember.count({ where: { user: { lineUserId: 'U-real-phone' } } })).toBe(0);
+  });
+});
+
+describe('real use with no box and no Messaging API', () => {
+  const FAMILY = 'U-real-family';
+  const HELPER = 'U-real-helper';
+  const home = { lat: 13.75, lng: 100.5 };
+
+  async function realElder() {
+    const res = await register(
+      jsonRequest('/api/liff/register', {
+        headers: bearer(FAMILY),
+        body: {
+          name: 'คุณยายจริง',
+          nickname: 'จริง',
+          title: 'คุณยาย',
+          familyTerm: 'แม่',
+          age: 80,
+          sex: 'FEMALE',
+          address: '1 ถนนจริง',
+          ...home,
+          conditions: [],
+          medications: [{ name: 'ยาลดความดัน', schedule: 'เช้า' }],
+          consent: true,
+        },
+      }),
+      params({}),
+    );
+    expect(res.status).toBe(200);
+    const { elderId } = await res.json();
+    const invite = await createInviteRoute(
+      jsonRequest(`/api/liff/elder/${elderId}/invites`, {
+        headers: bearer(FAMILY),
+        body: { role: 'INNER' },
+      }),
+      params({ id: elderId }),
+    );
+    const token = String((await invite.json()).url).split('/invite/')[1]!;
+    expect(
+      (await joinInvite(jsonRequest(`/api/liff/invite/${token}`, { headers: bearer(HELPER) }), params({ token }))).status,
+    ).toBe(200);
+    return elderId as string;
+  }
+
+  const report = (elderId: string, sub: string) =>
+    reportFall(
+      jsonRequest(`/api/liff/elder/${elderId}/report`, { body: {}, headers: bearer(sub) }),
+      params({ id: elderId }),
+    );
+  const arriveAt = (id: string, lat: number, sub: string) =>
+    arrive(
+      jsonRequest(`/api/liff/incident/${id}/arrive`, { body: { lat, lng: home.lng }, headers: bearer(sub) }),
+      params({ id }),
+    );
+
+  afterEach(async () => {
+    await db().elder.deleteMany({ where: { name: 'คุณยายจริง' } });
+  });
+
+  it('runs from registration to the family summary', async () => {
+    const elderId = await realElder();
+    expect((await db().elder.findUniqueOrThrow({ where: { id: elderId } })).isDemo).toBe(false);
+
+    const reported = await report(elderId, FAMILY);
+    expect(reported.status).toBe(200);
+    const { incidentId, created } = await reported.json();
+    expect(created).toBe(true);
+    await flushAfter();
+
+    const view = await (
+      await incidentGet(
+        jsonRequest(`/api/liff/incident/${incidentId}`, { method: 'GET', headers: bearer(HELPER) }),
+        params({ id: incidentId }),
+      )
+    ).json();
+    expect(view.isDemoElder).toBe(false);
+    expect(view.noVoiceAnswer).toBe(false);
+    expect(view.room).toBe('บ้าน');
+
+    const alert = (await outbound(incidentId)).find((m) => m.template === 'family.searching')!;
+    expect(JSON.stringify(alert.messages)).toContain('แม่ล้มในบ้าน กำลังหาคนไปช่วย');
+
+    expect(
+      (await accept(jsonRequest(`/api/liff/incident/${incidentId}/accept`, { body: {}, headers: bearer(HELPER) }), params({ id: incidentId }))).status,
+    ).toBe(200);
+    expect((await arriveAt(incidentId, home.lat + 0.0045, HELPER)).status).toBe(422);
+    expect((await arriveAt(incidentId, home.lat + 0.00045, HELPER)).status).toBe(200);
+    expect(
+      (await summary(
+        jsonRequest(`/api/liff/incident/${incidentId}/summary`, {
+          body: { result: 'OK', checklist: [], note: 'ปลอดภัยดี' },
+          headers: bearer(HELPER),
+        }),
+        params({ id: incidentId }),
+      )).status,
+    ).toBe(200);
+    expect((await db().incident.findUniqueOrThrow({ where: { id: incidentId } })).status).toBe('RESOLVED');
+  });
+
+  it('a second report joins the open incident', async () => {
+    const elderId = await realElder();
+    const first = await (await report(elderId, FAMILY)).json();
+    const second = await (await report(elderId, HELPER)).json();
+    await flushAfter();
+    expect(second).toMatchObject({ incidentId: first.incidentId, created: false });
+    expect(await db().incidentEvent.count({ where: { incidentId: first.incidentId, kind: 'REPORTED' } })).toBe(2);
+  });
+
+  it('only the circle can report', async () => {
+    const elderId = await realElder();
+    expect((await report(elderId, 'U-outsider-2')).status).toBe(404);
+    expect(await db().incident.count({ where: { elderId } })).toBe(0);
+  });
+
+  it('demo controls cannot touch a real incident', async () => {
+    const elderId = await realElder();
+    const { incidentId } = await (await report(elderId, FAMILY)).json();
+    await flushAfter();
+    expect((await join(incidentId)).status).toBe(404);
+  });
+
+  const join = (id: string) =>
+    joinDemo(
+      jsonRequest(`/api/liff/incident/${id}/join`, { body: {}, headers: bearer('U-stranger-3') }),
+      params({ id }),
+    );
 });

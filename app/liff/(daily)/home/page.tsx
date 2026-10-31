@@ -1,9 +1,11 @@
 import { Bell, BookOpenCheck, ChevronRight, Siren } from 'lucide-react';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { AvailabilityToggle } from '@/components/availability-toggle';
 import { ElderCard } from '@/components/elder-card';
 import { Logo } from '@/components/logo';
 import { pageUser } from '@/lib/page-auth';
+import { todayLabel } from '@/lib/time';
 import { getHome } from '@/lib/views';
 
 function Stat({
@@ -13,7 +15,7 @@ function Stat({
 }: {
   value: string | number;
   unit?: string;
-  label: string;
+  label: ReactNode;
 }) {
   return (
     <div className="glass p-3.5">
@@ -42,7 +44,7 @@ export default async function HomePage() {
         </Link>
       </header>
 
-      <p className="mt-5 text-sm text-muted">เดือนนี้ของคุณ</p>
+      <p className="mt-5 text-sm text-muted">วันนี้ · {todayLabel()}</p>
       <h1 className="text-[28px] font-bold">สวัสดี {user.displayName}</h1>
 
       {activeIncidentId && (
@@ -62,13 +64,22 @@ export default async function HomePage() {
       />
 
       <section className="mt-3 grid grid-cols-3 gap-2.5" aria-label="สถิติเดือนนี้">
-        <Stat value={stats.helped} label="ครั้งที่ไปช่วย" />
+        <Stat value={stats.helped} label="ครั้งที่ไปช่วย เดือนนี้" />
         <Stat
           value={stats.averageArrival ?? '-'}
           unit={stats.averageArrival === null ? undefined : 'นาที'}
           label="ไปถึงเฉลี่ย"
         />
-        <Stat value={stats.standby} label="ครั้งที่สแตนด์บาย" />
+        <Stat
+          value={stats.standby}
+          label={
+            <>
+              ครั้งที่
+              <br />
+              สแตนด์บาย
+            </>
+          }
+        />
       </section>
 
       <div className="mt-5 mb-2 flex items-center justify-between">
@@ -83,7 +94,10 @@ export default async function HomePage() {
 
       {elders.length === 0 ? (
         <p className="glass p-5 text-center text-muted">
-          ยังไม่ได้อยู่ในวงของใคร เปิดลิงก์เชิญจากลูกหลานเพื่อเข้าร่วม
+          ยังไม่ได้อยู่ในวงของใคร เปิดลิงก์เชิญจากลูกหลาน หรือ
+          <Link href="/liff/register" className="btn btn-soft mt-3">
+            ลงทะเบียนผู้สูงอายุ
+          </Link>
         </p>
       ) : (
         <div className="flex flex-col gap-2.5">

@@ -1,0 +1,7 @@
+fetchTimeout: 900000
+fetchRetries: 8
+networkConcurrency: 4
+allowBuilds:
+  '@prisma/engines': true
+  esbuild: true
+  prisma: true
